@@ -17,7 +17,7 @@ stages:
     - export GITLAB_CI_TOKEN=$CI_JOB_TOKEN # Export GitLab CI token for script use
     - python git-sync.py --source $SOURCE_REPO --destination $DEST_REPO # Run the Python synchronization script with source and destination as arguments
 
-# Job 1
+# Example Job 1
 sync_job_1:
   <<: *sync_template
   stage: sync
@@ -36,7 +36,7 @@ sync_job_1:
     - when: manual
       allow_failure: true
 
-# Job 2
+# Example Job 2
 sync_job_2:
   <<: *sync_template
   stage: sync
