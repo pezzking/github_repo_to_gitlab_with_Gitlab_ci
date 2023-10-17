@@ -1,0 +1,52 @@
+stages:
+  - sync # Define a single stage named 'sync'
+
+.sync_template: &sync_template
+  image: python:3.9 # Use Python 3.9 Docker image
+  tags: ["docker"] # Tags for the runner (if needed)
+  before_script:
+    - mkdir -p ~/.ssh # Create SSH directory if not exists
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - echo -e "Host gitlab.desls.nl\n    Port 2022" >> ~/.ssh/config # Set custom SSH port for GitLab
+    - ssh-keyscan -H github.com >> ~/.ssh/known_hosts # Add GitHub to known hosts
+    - eval $(ssh-agent -s) # Initialize SSH agent
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - # Add SSH private key to SSH agent
+    - chmod 600 ~/.ssh/config # Set correct permissions for SSH config
+  script:
+    - pip install --no-warn-script-location gitpython pyyaml # Install required Python packages
+    - export GITLAB_CI_TOKEN=$CI_JOB_TOKEN # Export GitLab CI token for script use
+    - python git-sync.py --source $SOURCE_REPO --destination $DEST_REPO # Run the Python synchronization script with source and destination as arguments
+
+# Job 1
+sync_job_1:
+  <<: *sync_template
+  stage: sync
+  variables:
+    GIT_STRATEGY: clone # Strategy for git operations
+    # Source repository URL
+    SOURCE_REPO: "git@github.com:example/connectors.git"
+    # Destination repository URL
+    DEST_REPO: "git@gitlab.com:example/github-mirror/connectors.git"
+  rules:
+    # Run always and don't allow failure for scheduled pipelines
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+      allow_failure: false
+    # Allow manual execution and allow failure
+    - when: manual
+      allow_failure: true
+
+# Job 2
+sync_job_2:
+  <<: *sync_template
+  stage: sync
+  variables:
+    GIT_STRATEGY: clone
+    SOURCE_REPO: "git@github.com:dummy/labs.git"
+    DEST_REPO: "git@gitlab.com:dummy/github-mirror/labs.git"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+      allow_failure: false
+    - when: manual
+      allow_failure: true
